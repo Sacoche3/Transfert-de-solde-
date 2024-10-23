@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Administrative</title>
+    <link rel="stylesheet" href="styles.css"> <!-- Lien vers le fichier CSS -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1, h2 {
+            color: #333;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        .search-container {
+            margin-bottom: 20px;
+        }
+
+        .search-container input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .modal {
+            display: none; /* Masquer par défaut */
+            position: fixed; /* Rester en place */
+            z-index: 1; /* Au-dessus des autres éléments */
+            left: 0;
+            top: 0;
+            width: 100%; /* Plein écran */
+            height: 100%; /* Plein écran */
+            overflow: auto; /* Activer le défilement si nécessaire */
+            background-color: rgb(0,0,0); /* Couleur de fond */
+            background-color: rgba(0,0,0,0.4); /* Couleur de fond avec opacité */
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto; /* 15% de haut et centrer */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; /* Largeur du modal */
+            border-radius: 8px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        button {
+            padding: 10px 15px;
+            background-color: #5cb85c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #4cae4c;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Administration</h1>
+
+        <!-- Section de recherche d'utilisateur -->
+        <div class="search-container">
+            <input type="text" id="userSearch" placeholder="Rechercher un utilisateur par email ou nom...">
+        </div>
+
+        <h2>Informations des Utilisateurs</h2>
+        <table id="usersTable">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Nom</th>
+                    <th>Solde</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Les utilisateurs seront ajoutés ici dynamiquement -->
+            </tbody>
+        </table>
+
+        <h2>Demandes de Retrait</h2>
+        <table id="withdrawalsTable">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Montant</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Les demandes de retrait seront ajoutées ici dynamiquement -->
+            </tbody>
+        </table>
+
+        <!-- Formulaire de modification d'utilisateur -->
+        <div id="editUserModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Modifier l'Utilisateur</h2>
+                <form id="editUserForm">
+                    <input type="hidden" id="userId" name="userId" required>
+                    <label for="userEmail">Email :</label>
+                    <input type="email" id="userEmail" name="userEmail" required>
+                    <label for="userName">Nom :</label>
+                    <input type="text" id="userName" name="userName" required>
+                    <label for="userBalance">Solde :</label>
+                    <input type="number" id="userBalance" name="userBalance" required>
+                    <button type="submit">Sauvegarder</button>
+                </form>
+                
+                <h3>Demandes de Retrait</h3>
+                <ul id="withdrawalRequests">
+                    <!-- Les demandes de retrait de l'utilisateur s'afficheront ici -->
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Importer les bibliothèques Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
+        import { getDatabase, ref, onValue, update, remove } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+
+        // Configuration de votre application Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBFREc4PyC6VTYgXN3eEV9_AYpVo6nkyco",
+            authDomain: "ciaxe-727b1.firebaseapp.com",
+            databaseURL: "https://ciaxe-727b1-default-rtdb.firebaseio.com",
+            projectId: "ciaxe-727b1",
+            storageBucket: "ciaxe-727b1.appspot.com",
+            messagingSenderId: "52732576686",
+            appId: "1:52732576686:web:70f5d27fc58bc5bd31fe3f"
+        };
+
+        // Initialiser Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // Récupération et affichage des utilisateurs
+        const usersRef = ref(database, 'users/');
+        onValue(usersRef, (snapshot) => {
+            const users = snapshot.val();
+            const usersTableBody = document.getElementById('usersTable').querySelector('tbody');
+            usersTableBody.innerHTML = ''; // Vider la table avant de la remplir
+
+            for (let id in users) {
+                const user = users[id];
+                const row = `
+                    <tr>
+                        <td>${user.email}</td>
+                        <td>${user.name}</td>
+                        <td>${user.balance} FCFA</td>
+                        <td><button class="edit-btn" data-id="${id}">Modifier</button></td>
+                    </tr>
+                `;
+                usersTableBody.innerHTML += row;
+            }
+        });
+
+        // Gestion de l'événement de clic pour modifier un utilisateur
+        document.addEventListener('click', (event) => {
+            if (event.target.classList.contains('edit-btn')) {
+                const userId = event.target.getAttribute('data-id');
+                showEditUserModal(userId);
+            }
+        });
+
+        // Fonction pour afficher le modal de modification
+        function showEditUserModal(userId) {
+            const userRef = ref(database, 'users/' + userId);
+            onValue(userRef, (snapshot) => {
+                const user = snapshot.val();
+                document.getElementById('userId').value = userId;
+                document.getElementById('userEmail').value = user.email;
+                document.getElementById('userName').value = user.name;
+                document.getElementById('userBalance').value = user.balance;
+
+                // Afficher les demandes de retrait associées
+                const withdrawalRef = ref(database, 'withdrawals/');
+                onValue(withdrawalRef, (snapshot) => {
+                    const withdrawals = snapshot.val();
+                    const withdrawalList = document.getElementById('withdrawalRequests');
+                    withdrawalList.innerHTML = ''; // Vider la liste avant de la remplir
+
+                    for (let key in withdrawals) {
+                        const request = withdrawals[key];
+                        if (request.email === user.email) { // Vérifier si la demande appartient à cet utilisateur
+                            const listItem = document.createElement('li');
+                            listItem.innerHTML = `
+                                ${request.amount} FCFA - ${request.date} 
+                                <button class="approve-btn" data-id="${key}">Approuver</button>
+                                <button class="reject-btn" data-id="${key}">Rejeter</button>
+                            `;
+                            withdrawalList.appendChild(listItem);
+                        }
+                    }
+
+                    // Affichage pour débogage
+                    console.log('Demandes de retrait pour ' + user.email + ':', withdrawalList.innerHTML);
+                });
+
+                document.getElementById('editUserModal').style.display = 'block'; // Afficher le modal
+            });
+        }
+
+        // Événement pour fermer le modal
+        document.querySelector('.close').onclick = function() {
+            document.getElementById('editUserModal').style.display = 'none';
+        };
+
+        // Soumission du formulaire de modification d'utilisateur
+        document.getElementById('editUserForm').addEventListener('submit', (event) => {
+            event.preventDefault(); // Empêcher le rechargement de la page
+
+            const userId = document.getElementById('userId').value;
+            const updatedEmail = document.getElementById('userEmail').value;
+            const updatedName = document.getElementById('userName').value;
+            const updatedBalance = document.getElementById('userBalance').value;
+
+            // Mettre à jour les informations de l'utilisateur dans Firebase
+            update(ref(database, 'users/' + userId), {
+                email: updatedEmail,
+                name: updatedName,
+                balance: updatedBalance
+            }).then(() => {
+                alert('Informations de l\'utilisateur mises à jour avec succès!');
+                document.getElementById('editUserModal').style.display = 'none'; // Fermer le modal
+            }).catch((error) => {
+                alert('Erreur de mise à jour : ' + error);
+            });
+        });
+
+        // Gestion des demandes de retrait
+        document.addEventListener('click', (event) => {
+            if (event.target.classList.contains('approve-btn')) {
+                const withdrawalId = event.target.getAttribute('data-id');
+                approveWithdrawal(withdrawalId);
+            } else if (event.target.classList.contains('reject-btn')) {
+                const withdrawalId = event.target.getAttribute('data-id');
+                rejectWithdrawal(withdrawalId);
+            }
+        });
+
+        // Fonction pour approuver une demande de retrait
+        function approveWithdrawal(id) {
+            const withdrawalRef = ref(database, 'withdrawals/' + id);
+            remove(withdrawalRef).then(() => {
+                alert('Demande de retrait approuvée!');
+            }).catch((error) => {
+                alert('Erreur lors de l\'approbation : ' + error);
+            });
+        }
+
+        // Fonction pour rejeter une demande de retrait
+        function rejectWithdrawal(id) {
+            const withdrawalRef = ref(database, 'withdrawals/' + id);
+            remove(withdrawalRef).then(() => {
+                alert('Demande de retrait rejetée!');
+            }).catch((error) => {
+                alert('Erreur lors du rejet : ' + error);
+            });
+        }
+
+        // Filtrer les utilisateurs par recherche
+        document.getElementById('userSearch').addEventListener('keyup', function() {
+            const filter = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#usersTable tbody tr');
+
+            rows.forEach(row => {
+                const email = row.cells[0].textContent.toLowerCase();
+                const name = row.cells[1].textContent.toLowerCase();
+                if (email.includes(filter) || name.includes(filter)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+
+    </script>
+</body>
+</html>
